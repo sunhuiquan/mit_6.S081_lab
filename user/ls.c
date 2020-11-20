@@ -3,6 +3,8 @@
 #include "user/user.h"
 #include "kernel/fs.h"
 
+int a = DIRSIZ;
+
 char*
 fmtname(char *path)
 {
