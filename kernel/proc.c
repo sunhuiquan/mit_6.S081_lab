@@ -122,12 +122,12 @@ found:
   }
 
   // Alloc a kernel page table copy for process
-  //p->kernel_pagetable = proc_kernel_pagetable(p);
-  //if(p->kernel_pagetable == 0){
-//	freeproc(p);
-//	release(&p->lock);
- //   return 0;
- // }
+  p->kernel_pagetable = proc_kernelpg();
+  if(p->kernel_pagetable == 0){
+	freeproc(p);
+	release(&p->lock);
+    return 0;
+  }
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
