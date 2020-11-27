@@ -18,8 +18,11 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void wakeup1(struct proc *chan);
 static void freeproc(struct proc *p);
+void proc_free_kpt(pagetable_t kpt);
 
 extern char trampoline[]; // trampoline.S
+
+extern pagetable_t kernel_pagetable;
 
 // initialize the proc table at boot time.
 void
@@ -34,12 +37,12 @@ procinit(void)
       // Allocate a page for the process's kernel stack.
       // Map it high in memory, followed by an invalid
       // guard page.
-      char *pa = kalloc();
-      if(pa == 0)
-        panic("kalloc");
-      uint64 va = KSTACK((int) (p - proc));
-      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
-      p->kstack = va;
+//      char *pa = kalloc();
+//      if(pa == 0)
+//        panic("kalloc");
+//      uint64 va = KSTACK((int) (p - proc));
+//      kvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
+//      p->kstack = va;
   }
   kvminithart();
 }
@@ -122,12 +125,20 @@ found:
   }
 
   // Alloc a kernel page table copy for process
-  p->kernel_pagetable = proc_kernelpg();
-  if(p->kernel_pagetable == 0){
+  p->kernel_pg = proc_kernelpg();
+  if(p->kernel_pg == 0){
 	freeproc(p);
 	release(&p->lock);
     return 0;
   }
+
+  // Create kernel stack in per-process
+  char *pa = kalloc(); // kalloc will allocate a physical page
+  if(pa == 0)
+    panic("kalloc");
+  uint64 va = KSTACK((int)(p - proc));  
+  mappages(p->kernel_pg,va,PGSIZE,(uint64)pa,PTE_R | PTE_W);
+  p->kstack = va;
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -147,8 +158,23 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+  if(p->kstack){
+    pte_t *pte = walk(p->kernel_pg,p->kstack,0);
+	if(pte == 0)
+      panic("freeproc: kstack");
+	kfree((void*)PTE2PA(*pte)); // free the stack physical page
+  }
+  p->kstack = 0;
+
+  // note that here we can't free the real physical page,
+  // because other kernel page tables are also using it.
+  if(p->kernel_pg)
+    proc_free_kpt(p->kernel_pg);
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+  p->kernel_pg = 0;
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -158,6 +184,22 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+}
+
+void
+proc_free_kpt(pagetable_t kpt){
+	for(int i = 0;i < 512;i++){
+		pte_t pte = kpt[i];
+		// a physical age must have one flags at least except V
+		if((pte & PTE_V) && ((pte & (PTE_R | PTE_W | PTE_X)) == 0)){
+			kpt[i] = 0;
+			uint64 child = PTE2PA(pte);
+			proc_free_kpt((pagetable_t)child);
+		}else if(pte & PTE_V)
+			kpt[i] = 0;	
+	}
+
+	kfree((void *)kpt);
 }
 
 // Create a user page table for a given process,
@@ -195,6 +237,7 @@ proc_pagetable(struct proc *p)
 
 // Free a process's page table, and free the
 // physical memory it refers to.
+// (but keep the TRAMPOLINE and TRAPFRAME alive)
 void
 proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
@@ -481,7 +524,15 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context);
+      
+	  	// Now the scheduler will switch processes. And we will
+		// use per-process's kernel page table instead of the 
+		// global one, for which does't have kstack.
+		// And of course, here in kernel mode.
+		w_satp(MAKE_SATP(p->kernel_pg));
+		sfence_vma();
+
+	    swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -492,8 +543,14 @@ scheduler(void)
       release(&p->lock);
     }
 #if !defined (LAB_FS)
-    if(found == 0) {
+    // When found is zero means that there's no process, and we
+	// need to w_satp() and sfence_vma();
+	if(found == 0) {
       intr_on();
+
+	  w_satp(MAKE_SATP(kernel_pagetable));
+	  sfence_vma();
+
       asm volatile("wfi");
     }
 #else

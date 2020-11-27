@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -49,30 +51,31 @@ kvminit()
 
 pagetable_t
 proc_kernelpg(){
-  pagetable_t kernelpg = (pagetable_t) kalloc();
-  memset(kernel_pagetable, 0, PGSIZE);
+  pagetable_t kernelpg = uvmcreate();
+  if(kernelpg == 0)
+    return 0;
 
   // uart registers
-  kvmmap(UART0, UART0, PGSIZE, PTE_R | PTE_W);
+  proc_kvmmap(kernelpg,UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
   // virtio mmio disk interface
-  kvmmap(VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
+  proc_kvmmap(kernelpg,VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
   // CLINT
-  kvmmap(CLINT, CLINT, 0x10000, PTE_R | PTE_W);
+  proc_kvmmap(kernelpg,CLINT, CLINT, 0x10000, PTE_R | PTE_W);
 
   // PLIC
-  kvmmap(PLIC, PLIC, 0x400000, PTE_R | PTE_W);
+  proc_kvmmap(kernelpg,PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
   // map kernel text executable and read-only.
-  kvmmap(KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
+  proc_kvmmap(kernelpg,KERNBASE, KERNBASE, (uint64)etext-KERNBASE, PTE_R | PTE_X);
 
   // map kernel data and the physical RAM we'll make use of.
-  kvmmap((uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
+  proc_kvmmap(kernelpg,(uint64)etext, (uint64)etext, PHYSTOP-(uint64)etext, PTE_R | PTE_W);
 
   // map the trampoline for trap entry/exit to
   // the highest virtual address in the kernel.
-  kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
+  proc_kvmmap(kernelpg,TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 
   return kernelpg;
 }
@@ -151,18 +154,27 @@ kvmmap(uint64 va, uint64 pa, uint64 sz, int perm)
     panic("kvmmap");
 }
 
+void
+proc_kvmmap(pagetable_t pg,uint64 va,uint64 pa,uint64 sz,int perm)
+{
+  if(mappages(pg, va, sz, pa, perm) != 0)
+    panic("proc kvmmap");
+}
+
 // translate a kernel virtual address to
 // a physical address. only needed for
 // addresses on the stack.
 // assumes va is page aligned.
+// only need kstack means myproc() must not be zero
 uint64
 kvmpa(uint64 va)
 {
   uint64 off = va % PGSIZE;
   pte_t *pte;
   uint64 pa;
+ 
+  pte = walk(myproc()->kernel_pg, va, 0);
   
-  pte = walk(kernel_pagetable, va, 0);
   if(pte == 0)
     panic("kvmpa");
   if((*pte & PTE_V) == 0)
