@@ -10,9 +10,9 @@
 
 ### Lab 3：2020/11/29 to add some detail
 
-费劲千辛万苦搞完了，debug了半天，虽然通过了lab，但是ans.txt和
-一些关于exec和sbrk的细节还没处理好，to do吧，先往下看看，细节
-有一点涉及到之后的章节。
+费劲千辛万苦搞完了，debug了半天，虽然通过了lab，但是ans.txt
+和一些关于exec和sbrk的细节还没处理好，to do吧，先往下看看，
+细节有一点涉及到之后的章节。
 
 ### to do： 
 Lab 4：
