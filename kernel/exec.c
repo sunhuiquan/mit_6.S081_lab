@@ -51,7 +51,9 @@ exec(char *path, char **argv)
     uint64 sz1;
     if((sz1 = uvmalloc(pagetable, sz, ph.vaddr + ph.memsz)) == 0)
       goto bad;
-    sz = sz1;
+  	if(sz1 >= PLIC)
+	  goto bad;
+  	sz = sz1;
     if(ph.vaddr % PGSIZE != 0)
       goto bad;
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
