@@ -168,6 +168,7 @@ pagetable_t     uvmcreate(void);
 void            uvminit(pagetable_t, uchar *, uint);
 uint64          uvmalloc(pagetable_t, uint64, uint64);
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
+void            vmcopy_u2k(pagetable_t, pagetable_t, uint64, uint64);
 #ifdef SOL_COW
 #else
 int             uvmcopy(pagetable_t, pagetable_t, uint64);
@@ -206,6 +207,10 @@ void            statsinc(void);
 // sprintf.c
 int             snprintf(char*, int, char*, ...);
 
+// vmcopyin.c
+int             copyin_new(pagetable_t, char *, uint64, uint64);
+int             copyinstr_new(pagetable_t, char *, uint64, uint64);
+
 #ifdef LAB_NET
 // pci.c
 void            pci_init();
@@ -226,4 +231,5 @@ void            sockclose(struct sock *);
 int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
+
 #endif

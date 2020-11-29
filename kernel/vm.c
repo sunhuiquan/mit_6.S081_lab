@@ -421,23 +421,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
-  uint64 n, va0, pa0;
-
-  while(len > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (srcva - va0);
-    if(n > len)
-      n = len;
-    memmove(dst, (void *)(pa0 + (srcva - va0)), n);
-
-    len -= n;
-    dst += n;
-    srcva = va0 + PGSIZE;
-  }
-  return 0;
+  return copyin_new(pagetable,dst,srcva,len);
 }
 
 // Copy a null-terminated string from user to kernel.
@@ -447,42 +431,8 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 int
 copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
-  uint64 n, va0, pa0;
-  int got_null = 0;
-
-  while(got_null == 0 && max > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
-    n = PGSIZE - (srcva - va0);
-    if(n > max)
-      n = max;
-
-    char *p = (char *) (pa0 + (srcva - va0));
-    while(n > 0){
-      if(*p == '\0'){
-        *dst = '\0';
-        got_null = 1;
-        break;
-      } else {
-        *dst = *p;
-      }
-      --n;
-      --max;
-      p++;
-      dst++;
-    }
-
-    srcva = va0 + PGSIZE;
-  }
-  if(got_null){
-    return 0;
-  } else {
-    return -1;
-  }
+  return copyinstr_new(pagetable,dst,srcva,max);
 }
-
 
 static void walk_print_pte(pagetable_t pagetable,int level){
 	for(int i = 0;i < 512;i++){
@@ -505,4 +455,26 @@ static void walk_print_pte(pagetable_t pagetable,int level){
 void vmprint(pagetable_t pg){
 	printf("page table %p\n",pg);
 	walk_print_pte(pg,0);
+}
+
+void vmcopy_u2k(pagetable_t upg,pagetable_t kpg,uint64 old,uint64 sz){
+	uint64 addr = old,pa;
+	pte_t *pte_read, *pte_write;
+
+	if(sz < old)
+		return;
+
+	addr = PGROUNDUP(addr);
+	// the last one ranges from sz - PGSIZE to sz - 1
+	for(;addr < sz;addr += PGSIZE){
+		if((pte_read = walk(upg,addr,0)) == 0)
+			panic("vmcopy_u2k: user pte doesn't exist");
+
+		// note that in such a low vm address there's no pte
+		if((pte_write = walk(kpg,addr,1)) == 0)
+			panic("vmcopy_u2k: walk and alloc failed");
+
+		pa = PTE2PA(*pte_read);
+		*pte_write = PA2PTE(pa) | (PTE_FLAGS(*pte_read) & (~PTE_U));
+	}
 }

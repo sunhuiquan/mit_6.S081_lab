@@ -272,6 +272,8 @@ userinit(void)
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
 
+  vmcopy_u2k(p->pagetable,p->kernel_pg,0,p->sz);
+
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
   p->trapframe->sp = PGSIZE;  // user stack pointer
@@ -294,13 +296,23 @@ growproc(int n)
 
   sz = p->sz;
   if(n > 0){
+    if(PGROUNDUP(sz + n) >= PLIC)
+		return -1;
+
+	// if n < PGSIZE in uvmalloc += PGSIZE ensure aligned
     if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
     }
+  
+    // sz is new size and aligned
+    vmcopy_u2k(p->pagetable,p->kernel_pg,sz - n,sz);
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }
   p->sz = sz;
+  
+  
+
   return 0;
 }
 
@@ -324,6 +336,7 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+
   np->sz = p->sz;
 
   np->parent = p;
@@ -341,6 +354,8 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+
+  vmcopy_u2k(np->pagetable,np->kernel_pg,0,np->sz);
 
   pid = np->pid;
 
