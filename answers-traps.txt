@@ -1,0 +1,36 @@
+1.(1)Which registers contain arguments to functions?
+	   a0-a7 for integer and fa0-fa7 for float.
+  (2)For example, which register holds 13 in main's call to printf?
+	   Using a2.	   
+
+2.(1)Where is the call to function f in the assembly code for main?
+       The complier is so powerful, which has optimized this process,
+	   and even call nothing.(li a1,12 and 12 is the final value).
+  (2)Where is the call to g? (The compiler may inline functions)
+  	   It didn't call g for optimizing. 
+
+3.At what address is the function printf located?
+	   At 0x630.
+
+4.What value is in the register ra just after the 
+  jalr to printf in main?
+	   0x38.
+
+5.Run the following code.
+	unsigned int i = 0x00646c72;
+	printf("H%x Wo%s", 57616, &i);
+ (1) What is the output?
+ 	   He110 World
+ (2)The output depends on that fact that the RISC-V is little-endian.
+  If the RISC-V were instead big-endian what would you set i to in
+  order to yield the same output? Would you need to change 57616 to
+  a different value?
+	   No need to change 57616, but need to reverse i.
+
+6.printf("x=%d y=%d", 3);
+  (1)In the following code, what is going to be printed after 'y='?
+     note: the answer is not a specific value.
+	   The value in a2.
+  (2)Why does this happen?
+       It's a call to printf and the second %d will use the third
+	   argument, which is in a2.
