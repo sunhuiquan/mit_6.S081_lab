@@ -132,8 +132,9 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  // 0 in xv6 is a normal address, so use the max number
-  p->handler = -1;
+  // 0 in xv6 is a normal address, but in latter codes
+  // it just use it, so don't care about it.
+  p->handler = 0;
   p->ticks = 0;
   p->pass_ticks = 0;
   p->is_running = 0;
@@ -150,6 +151,11 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  
+  if(p->save_trapframe)
+    kfree((void*)p->save_trapframe);
+  p->save_trapframe = 0;
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
