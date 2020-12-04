@@ -127,6 +127,12 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // 0 in xv6 is a normal address, so use the max number
+  p->handler = -1;
+  p->ticks = 0;
+  p->pass_ticks = 0;
+  p->is_running = 0;
+
   return p;
 }
 

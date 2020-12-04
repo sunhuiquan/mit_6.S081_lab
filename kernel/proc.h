@@ -103,4 +103,44 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+ 
+  // LAB part_3
+  int ticks;
+  int pass_ticks;
+  uint64 handler;
+  int is_running;
+
+  // the saving user regs
+  uint64 h_ra;
+  uint64 h_sp;
+  uint64 h_gp;
+  uint64 h_tp;
+  uint64 h_a0;
+  uint64 h_a1;
+  uint64 h_a2;
+  uint64 h_a3;
+  uint64 h_a4;
+  uint64 h_a5;
+  uint64 h_a6;
+  uint64 h_a7;
+  uint64 h_s0;
+  uint64 h_s1;
+  uint64 h_s2;
+  uint64 h_s3;
+  uint64 h_s4;
+  uint64 h_s5;
+  uint64 h_s6;
+  uint64 h_s7;
+  uint64 h_s8;
+  uint64 h_s9;
+  uint64 h_s10;
+  uint64 h_s11;
+  uint64 h_t0;
+  uint64 h_t1;
+  uint64 h_t2;
+  uint64 h_t3;
+  uint64 h_t4;
+  uint64 h_t5;
+  uint64 h_t6;
+  uint64 h_epc;
 };
