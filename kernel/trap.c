@@ -92,42 +92,7 @@ usertrap(void)
  
           // save uesr regs(return in user mode so only need to save
 		  // user regs)
-		  p->h_ra = p->trapframe->ra;
-		  p->h_sp = p->trapframe->sp;
-		  p->h_gp = p->trapframe->gp;
-		  p->h_tp = p->trapframe->tp;
-
-		  p->h_a0 = p->trapframe->a0;
-		  p->h_a1 = p->trapframe->a1;
-	      p->h_a2 = p->trapframe->a2;
-	      p->h_a3 = p->trapframe->a3;
-     	  p->h_a4 = p->trapframe->a4;
-    	  p->h_a5 = p->trapframe->a5;
-    	  p->h_a6 = p->trapframe->a6;
-    	  p->h_a7 = p->trapframe->a7;
-    	  
-		  p->h_s0 = p->trapframe->s0;
-		  p->h_s1 = p->trapframe->s1;
-		  p->h_s2 = p->trapframe->s2;
-		  p->h_s3 = p->trapframe->s3;
-		  p->h_s4 = p->trapframe->s4;
-		  p->h_s5 = p->trapframe->s5;
-		  p->h_s6 = p->trapframe->s6;
-		  p->h_s7 = p->trapframe->s7;
-		  p->h_s8 = p->trapframe->s8;
-		  p->h_s9 = p->trapframe->s9;
-		  p->h_s10 = p->trapframe->s10;
-		  p->h_s11 = p->trapframe->s11;
-		  
-		  p->h_t0 = p->trapframe->t0;
-		  p->h_t1 = p->trapframe->t1;
-		  p->h_t2 = p->trapframe->t2;
-		  p->h_t3 = p->trapframe->t3;
-		  p->h_t4 = p->trapframe->t4;
-		  p->h_t5 = p->trapframe->t5;
-		  p->h_t6 = p->trapframe->t6;
-
-          p->h_epc = p->trapframe->epc;
+		  memmove(p->save_trapframe,p->trapframe,sizeof(struct trapframe));
 
           // to sret in handler function
 		  p->trapframe->epc = p->handler;
