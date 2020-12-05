@@ -2693,7 +2693,7 @@ main(int argc, char *argv[])
     {dirfile, "dirfile"},
     {iref, "iref"},
     {forktest, "forktest"},
-    {bigdir, "bigdir"}, // slow
+//    {bigdir, "bigdir"}, // slow
     { 0, 0},
   };
 

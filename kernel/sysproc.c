@@ -119,15 +119,11 @@ sys_sigreturn(void)
   
   p->is_running = 0;
 
-  uint64 kernel_hartid = p->trapframe->kernel_hartid;
-  uint64 kernel_trap = p->trapframe->kernel_trap;
-  uint64 kernel_sp = p->trapframe->kernel_sp;
-  uint64 kernel_satp = p->trapframe->kernel_satp;
-  memmove(p->trapframe,p->save_trapframe,sizeof(struct trapframe));
-  p->trapframe->kernel_hartid = kernel_hartid;
-  p->trapframe->kernel_satp = kernel_satp;
-  p->trapframe->kernel_sp = kernel_sp;
-  p->trapframe->kernel_trap = kernel_trap;
+  // to avoid any small bugs, never change the non-user registers, in fact, if you change
+  // them, the next instructions may crash for such like kernel_sp pointing wrong, even in
+  // the next line make it resume, therefore never do it, unless you will be mad like me. :)
+  memmove((void *)p->trapframe + 40,(void *)p->save_trapframe + 40,sizeof(struct trapframe));
+  p->trapframe->epc = p->h_epc;
 
   return 0;
 }

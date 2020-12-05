@@ -112,4 +112,5 @@ struct proc {
 
   // the saving user regs
   struct trapframe *save_trapframe;
+  uint64 h_epc;
 };

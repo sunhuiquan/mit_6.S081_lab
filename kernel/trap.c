@@ -92,7 +92,8 @@ usertrap(void)
  
           // save uesr regs(return in user mode so only need to save
 		  // user regs)
-		  memmove(p->save_trapframe,p->trapframe,sizeof(struct trapframe));
+		  memmove((void *)p->save_trapframe + 40,(void *)p->trapframe + 40,sizeof(struct trapframe));
+		  p->h_epc = p->trapframe->epc;
 
           // to sret in handler function
 		  p->trapframe->epc = p->handler;
