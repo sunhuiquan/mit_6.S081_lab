@@ -119,7 +119,15 @@ sys_sigreturn(void)
   
   p->is_running = 0;
 
+  uint64 kernel_hartid = p->trapframe->kernel_hartid;
+  uint64 kernel_trap = p->trapframe->kernel_trap;
+  uint64 kernel_sp = p->trapframe->kernel_sp;
+  uint64 kernel_satp = p->trapframe->kernel_satp;
   memmove(p->trapframe,p->save_trapframe,sizeof(struct trapframe));
+  p->trapframe->kernel_hartid = kernel_hartid;
+  p->trapframe->kernel_satp = kernel_satp;
+  p->trapframe->kernel_sp = kernel_sp;
+  p->trapframe->kernel_trap = kernel_trap;
 
   return 0;
 }

@@ -134,7 +134,7 @@ found:
 
   // 0 in xv6 is a normal address, but in latter codes
   // it just use it, so don't care about it.
-  p->handler = 0;
+  p->handler = -1;
   p->ticks = 0;
   p->pass_ticks = 0;
   p->is_running = 0;
