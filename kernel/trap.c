@@ -68,9 +68,44 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    p->killed = 1;
+    if(r_scause() == 13 || r_scause() == 15)
+    {
+	  uint64 fault_va = r_stval();
+	  // the lazy allocating only occur in heap,
+	  // so the other area are all exception
+	  if(fault_va < p->sz && fault_va > PGROUNDDOWN(p->trapframe->sp))
+	  {
+	  	fault_va = PGROUNDDOWN(fault_va);
+
+	  	// to do with failed
+	  	char *mem = kalloc();
+	  	if(mem == 0)
+	  	{
+        //  printf("kalloc failed trap.c:80\n");
+	      p->killed = 1;
+	  	}
+      	else
+	  	{
+          if(mappages(p->pagetable,fault_va,PGSIZE,(uint64)mem,PTE_W|PTE_X|PTE_R|PTE_U) != 0)
+		  {
+	//	    printf("mappages failed trap.c:82\n");
+	        kfree((void*)mem);
+		    p->killed = 1;
+	      }
+	    }
+	  }
+	  else
+	  {
+        //printf("trap.c:97\n");
+		p->killed = 1;
+	  }
+    }
+    else
+    {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      p->killed = 1;
+    }
   }
 
   if(p->killed)
