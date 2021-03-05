@@ -43,8 +43,7 @@ sysproc.c写的注释。。。一点不顺利地完成了lab4.
 ### Lab 7：2020/12/19
 
 这个lab的代码很简单，但是xv6 book这一章真是读吐了，一堆东西，还是
-这个lab的part3的barrier我一开始以为是xv6 book ch6中的memory bar
--rier，后来才反应过来这完全两个东西。
+这个lab的part3的barrier我一开始以为是xv6 book ch6中的memory barrier，后来才反应过来这完全两个东西。
 
 ### Lab 8：2020/12/20
 
