@@ -480,7 +480,7 @@ void itrunc(struct inode *ip)
 				bp2 = bread(ip->dev, a[j]);
 				a2 = (uint *)bp2->data;
 
-				for (int k; k < NINDIRECT; ++k)
+				for (int k = 0; k < NINDIRECT; ++k)
 				{
 					if (a2[k])
 						bfree(ip->dev, a2[k]);
