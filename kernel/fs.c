@@ -382,8 +382,8 @@ void iunlockput(struct inode *ip)
 static uint
 bmap(struct inode *ip, uint bn)
 {
-	uint addr, *a;
-	struct buf *bp;
+	uint addr, *a, *a2;
+	struct buf *bp, *bp2;
 
 	if (bn < NDIRECT)
 	{
@@ -405,6 +405,32 @@ bmap(struct inode *ip, uint bn)
 			a[bn] = addr = balloc(ip->dev);
 			log_write(bp);
 		}
+		brelse(bp);
+		return addr;
+	}
+
+	bn -= NINDIRECT;
+	if (bn < NDOUINDIRECT)
+	{
+		if ((addr = ip->addrs[NDIRECT + 1]) == 0)
+			ip->addrs[NDIRECT + 1] = addr = balloc(ip->dev);
+		bp = bread(ip->dev, addr);
+		a = (uint *)bp->data;
+
+		if ((addr = a[bn / NINDIRECT]) == 0)
+		{
+			a[bn / NINDIRECT] = addr = balloc(ip->dev);
+			log_write(bp);
+		}
+		bp2 = bread(ip->dev, addr);
+		a2 = (uint *)bp2->data;
+
+		if ((addr = a[bn % NINDIRECT]) == 0)
+		{
+			a2[bn % NINDIRECT] = addr = balloc(ip->dev);
+			log_write(bp2);
+		}
+		brelse(bp2);
 		brelse(bp);
 		return addr;
 	}
