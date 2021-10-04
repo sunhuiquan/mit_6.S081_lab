@@ -16,6 +16,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+#define MAXDEEP 10
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -295,27 +297,21 @@ create(char *path, short type, short major, short minor)
 }
 
 static struct inode *
-divesymlink(struct inode *isym)
+follow_link(struct inode *pinode)
 {
-	struct inode *ip = isym;
+	struct inode *ip = pinode;
 	char path[MAXPATH];
 	int deep = 0;
 
 	do
 	{
-		// get linked target
-		// we don't know how long the file str is, so we expect once read could get fullpath.
 		readi(ip, 0, (uint64)path, 0, MAXPATH);
 		iunlockput(ip);
-		if (++deep > 10)
-		{ // may cycle link
+		if (++deep > MAXDEEP)
 			return 0;
-		}
 
-		if ((ip = namei((char *)path)) == 0)
-		{ // link target not exist
+		if ((ip = namei(path)) == 0)
 			return 0;
-		}
 		ilock(ip);
 	} while (ip->type == T_SYMLINK);
 	return ip;
@@ -360,9 +356,9 @@ sys_open(void)
 		}
 	}
 
-	if (ip->type == T_SYMLINK && (omode & O_NOFOLLOW) == 0)
+	if (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW))
 	{
-		ip = divesymlink(ip);
+		ip = follow_link(ip);
 		if (ip == 0)
 		{ // link target not exist
 			end_op();
@@ -559,7 +555,8 @@ sys_pipe(void)
 uint64
 sys_symlink(void)
 {
-	char target[MAXPATH], path[MAXPATH], name[MAXPATH];
+	struct inode *ip;
+	char target[MAXPATH], path[MAXPATH];
 	memset((void *)target, 0, MAXPATH);
 	memset((void *)path, 0, MAXPATH);
 
@@ -569,32 +566,20 @@ sys_symlink(void)
 	}
 
 	begin_op();
-	// get parent inode
-	struct inode *iparent, *isym;
-	if ((iparent = nameiparent((char *)path, (char *)name)) == 0)
+	if ((ip = namei(path)) != 0)
 	{
+		iput(ip);
 		end_op();
 		return -1;
 	}
 
-	uint off;
-	if ((isym = dirlookup(iparent, name, &off)) != 0)
-	{
-		iput(isym);
-		iput(iparent);
-		end_op();
-		return -1;
-	}
-	iput(isym);
-	iput(iparent);
-
-	if ((isym = create(path, T_SYMLINK, 0, 0)) == 0)
+	if ((ip = create(path, T_SYMLINK, 0, 0)) == 0)
 		panic("create inode for symlink error");
 
 	int retval = 0;
-	if (writei(isym, 0, (uint64)target, 0, strlen((char *)target)) != strlen((char *)target))
+	if (writei(ip, 0, (uint64)target, 0, strlen((char *)target)) != strlen((char *)target))
 		retval = -1;
-	iunlockput(isym);
+	iunlockput(ip);
 	end_op();
 	return retval;
 }
