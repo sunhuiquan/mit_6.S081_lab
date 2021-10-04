@@ -294,6 +294,33 @@ create(char *path, short type, short major, short minor)
 	return ip;
 }
 
+static struct inode *
+divesymlink(struct inode *isym)
+{
+	struct inode *ip = isym;
+	char path[MAXPATH];
+	int deep = 0;
+
+	do
+	{
+		// get linked target
+		// we don't know how long the file str is, so we expect once read could get fullpath.
+		readi(ip, 0, (uint64)path, 0, MAXPATH);
+		iunlockput(ip);
+		if (++deep > 10)
+		{ // may cycle link
+			return 0;
+		}
+
+		if ((ip = namei((char *)path)) == 0)
+		{ // link target not exist
+			return 0;
+		}
+		ilock(ip);
+	} while (ip->type == T_SYMLINK);
+	return ip;
+}
+
 uint64
 sys_open(void)
 {
@@ -328,6 +355,16 @@ sys_open(void)
 		if (ip->type == T_DIR && omode != O_RDONLY)
 		{
 			iunlockput(ip);
+			end_op();
+			return -1;
+		}
+	}
+
+	if (ip->type == T_SYMLINK && (omode & O_NOFOLLOW) == 0)
+	{
+		ip = divesymlink(ip);
+		if (ip == 0)
+		{ // link target not exist
 			end_op();
 			return -1;
 		}
@@ -519,67 +556,45 @@ sys_pipe(void)
 	return 0;
 }
 
-//  symlink(char *target, char *path)
-uint64 sys_symlink(void)
+uint64
+sys_symlink(void)
 {
 	char target[MAXPATH], path[MAXPATH], name[MAXPATH];
-	struct inode *idir, *ip;
-	uint64 addr;
+	memset((void *)target, 0, MAXPATH);
+	memset((void *)path, 0, MAXPATH);
 
 	if (argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+	{
 		return -1;
+	}
 
 	begin_op();
-	// 符号链接和所指向的文件的inode无任何关系，inode的nlink是硬链接数
-	if ((idir = nameiparent((char *)path, (char *)name)) == 0)
+	// get parent inode
+	struct inode *iparent, *isym;
+	if ((iparent = nameiparent((char *)path, (char *)name)) == 0)
 	{
-		iput(idir);
 		end_op();
 		return -1;
 	}
 
 	uint off;
-	if ((ip = dirlookup(ip, name, &off)) == 0)
+	if ((isym = dirlookup(iparent, name, &off)) != 0)
 	{
-		iput(idir);
-		iput(ip);
+		iput(isym);
+		iput(iparent);
 		end_op();
 		return -1;
 	}
+	iput(isym);
+	iput(iparent);
 
-	if ((ip = create(path, T_SYMLINK, 0, 0)) == 0)
-	{
-		iput(idir);
-		iput(ip);
-		end_op();
-		return -1;
-	}
-
-	end_op();
-	return 0;
+	if ((isym = create(path, T_SYMLINK, 0, 0)) == 0)
+		panic("create inode for symlink error");
 
 	int retval = 0;
-	uint pathlen = strlen((char *)target);
-	uint r, total;
-	r = total = 0;
-	while (total != pathlen)
-	{
-		if ((r = writei(ip, 0, (uint64)(target + total), total, pathlen - total)) > 0)
-		{
-			total += r;
-		}
-		else
-		{
-			retval = -1;
-			break;
-		}
-	}
-
-	ilock(ip);
-	writei(ip, 0, (uint64)target, ip->size, MAXPATH);
-	iupdate(ip);
-	iunlockput(ip);
-
+	if (writei(isym, 0, (uint64)target, 0, strlen((char *)target)) != strlen((char *)target))
+		retval = -1;
+	iunlockput(isym);
 	end_op();
-	return 0;
+	return retval;
 }
