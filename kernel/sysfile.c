@@ -522,10 +522,64 @@ sys_pipe(void)
 //  symlink(char *target, char *path)
 uint64 sys_symlink(void)
 {
-	char target[MAXPATH], path[MAXPATH];
+	char target[MAXPATH], path[MAXPATH], name[MAXPATH];
+	struct inode *idir, *ip;
+	uint64 addr;
 
-	if (argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH))
+	if (argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
 		return -1;
 
+	begin_op();
+	// 符号链接和所指向的文件的inode无任何关系，inode的nlink是硬链接数
+	if ((idir = nameiparent((char *)path, (char *)name)) == 0)
+	{
+		iput(idir);
+		end_op();
+		return -1;
+	}
+
+	uint off;
+	if ((ip = dirlookup(ip, name, &off)) == 0)
+	{
+		iput(idir);
+		iput(ip);
+		end_op();
+		return -1;
+	}
+
+	if ((ip = create(path, T_SYMLINK, 0, 0)) == 0)
+	{
+		iput(idir);
+		iput(ip);
+		end_op();
+		return -1;
+	}
+
+	end_op();
+	return 0;
+
+	int retval = 0;
+	uint pathlen = strlen((char *)target);
+	uint r, total;
+	r = total = 0;
+	while (total != pathlen)
+	{
+		if ((r = writei(ip, 0, (uint64)(target + total), total, pathlen - total)) > 0)
+		{
+			total += r;
+		}
+		else
+		{
+			retval = -1;
+			break;
+		}
+	}
+
+	ilock(ip);
+	writei(ip, 0, (uint64)target, ip->size, MAXPATH);
+	iupdate(ip);
+	iunlockput(ip);
+
+	end_op();
 	return 0;
 }
